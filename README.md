@@ -18,13 +18,12 @@ Example content of versions.txt:
 1.0.0
 ```
 
-For each version in the versions.txt you have to provide an update zip archive in the same directory as "versions.txt".
+For each version in the versions.txt except the first entry you have to provide an update zip archive in the same directory as "versions.txt".
 
 These update archives has to named like the version with a ".zip" file extension.
 
 Example:
 ```
-0.0.2.zip
 0.0.10.zip
 0.0.23.zip
 1.0.0.zip
