@@ -9,7 +9,7 @@ On the FTP Server you have to provide the update zip archives that are generated
 
 The FTP server address, user login and game startup executable you have to enter in the Settings.cs file from the GameUpdater project. 
 
-You have to privide a file named versions.txt on the FTP Directory that lists the version numbers of the game.
+You have to provide a file named versions.txt on the FTP Directory that lists the version numbers of the game.
 
 Example content of versions.txt:
 
