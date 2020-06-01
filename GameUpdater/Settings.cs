@@ -16,7 +16,7 @@ namespace GameUpdater
         public static string FTPDirectory = "/";
 
         //Game settings
-        public static string StartFile = "index.html";
+        public static string StartFile = "Game.exe";
 
     }
 }

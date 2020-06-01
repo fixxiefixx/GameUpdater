@@ -6,6 +6,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -79,32 +80,62 @@ namespace GameUpdater
 
         void DoDecode(string outputFile, string oldFile, string patchFile)
         {
-            using (FileStream output = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
-            using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
             using (FileStream target = new FileStream(patchFile, FileMode.Open, FileAccess.Read))
             {
-                VCDecoder decoder = new VCDecoder(dict, target, output);
+                byte[] hash = new byte[20];
+                target.Read(hash, 0, hash.Length);
 
-                //You must call decoder.Start() first. The header of the delta file must be available before calling decoder.Start()
+                byte[] realHash = GetSha1FromFile(oldFile);
 
-                VCDiffResult result = decoder.Start();
-
-                if (result != VCDiffResult.SUCCESS)
+                for(int i=0;i<hash.Length;i++)
                 {
-                    //error abort
-                    throw new Exception("abort while decoding");
+                    if(hash[i]!=realHash[i])
+                    {
+                        throw new Exception("file hash mismatch");
+                    }
                 }
 
-                long bytesWritten = 0;
-                result = decoder.Decode(out bytesWritten);
-
-                if (result != VCDiffResult.SUCCESS)
+                using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
+                using (FileStream output = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
                 {
-                    //error decoding
-                    throw new Exception("Error decoding");
-                }
 
-                //if success bytesWritten will contain the number of bytes that were decoded
+                    VCDecoder decoder = new VCDecoder(dict, target, output);
+
+                    //You must call decoder.Start() first. The header of the delta file must be available before calling decoder.Start()
+
+                    VCDiffResult result = decoder.Start();
+
+                    if (result != VCDiffResult.SUCCESS)
+                    {
+                        //error abort
+                        throw new Exception("abort while decoding");
+                    }
+
+                    long bytesWritten = 0;
+                    result = decoder.Decode(out bytesWritten);
+
+                    if (result != VCDiffResult.SUCCESS)
+                    {
+                        //error decoding
+                        throw new Exception("Error decoding");
+                    }
+
+                    //if success bytesWritten will contain the number of bytes that were decoded
+                }
+            }
+        }
+
+        //Gets 20 bytes SHA1 hash
+        private byte[] GetSha1FromFile(string file)
+        {
+            using (FileStream fs = new FileStream(file, FileMode.Open))
+            using (BufferedStream bs = new BufferedStream(fs))
+            {
+                using (SHA1Managed sha1 = new SHA1Managed())
+                {
+                    byte[] hash = sha1.ComputeHash(bs);
+                    return hash;
+                }
             }
         }
 
@@ -162,10 +193,18 @@ namespace GameUpdater
                         {
                             string oldFile= fullZipToPath.Substring(0, fullZipToPath.Length - 4);
                             string newFile = oldFile + ".new";
-                            DoDecode(newFile, oldFile, fullZipToPath);
-                            File.Delete(fullZipToPath);
-                            File.Delete(oldFile);
-                            File.Move(newFile, oldFile);
+                            try
+                            {
+                                DoDecode(newFile, oldFile, fullZipToPath);
+
+                                File.Delete(fullZipToPath);
+                                File.Delete(oldFile);
+                                File.Move(newFile, oldFile);
+                            }
+                            catch {
+                                File.Delete(fullZipToPath);
+                            }
+                            
                         }
 
                     }

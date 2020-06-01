@@ -16,10 +16,13 @@ namespace GamePatchCreator
 
         private void DoEncode(string outPatchFile, string oldFile, string newFile)
         {
+            byte[] hash = GetSha1FromFile(oldFile);
             using (FileStream output = new FileStream(outPatchFile, FileMode.Create, FileAccess.Write))
             using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
             using (FileStream target = new FileStream(newFile, FileMode.Open,FileAccess.Read))
             {
+                output.Write(hash, 0, 20);
+
                 VCCoder coder = new VCCoder(dict, target, output);
                 VCDiffResult result = coder.Encode(); //encodes with no checksum and not interleaved
                 if (result != VCDiffResult.SUCCESS)
@@ -50,7 +53,8 @@ namespace GamePatchCreator
             return StringExtensions.IsSubPathOf(dir1, dir2) || StringExtensions.IsSubPathOf(dir2,dir1);
         }
 
-        private string GetSha1FromFile(string file)
+        //Gets 20 bytes SHA1 hash
+        private byte[] GetSha1FromFile(string file)
         {
             using (FileStream fs = new FileStream(file, FileMode.Open))
             using (BufferedStream bs = new BufferedStream(fs))
@@ -58,13 +62,7 @@ namespace GamePatchCreator
                 using (SHA1Managed sha1 = new SHA1Managed())
                 {
                     byte[] hash = sha1.ComputeHash(bs);
-                    StringBuilder formatted = new StringBuilder(2 * hash.Length);
-                    foreach (byte b in hash)
-                    {
-                        formatted.AppendFormat("{0:X2}", b);
-                        
-                    }
-                    return formatted.ToString();
+                    return hash;
                 }
             }
         }
