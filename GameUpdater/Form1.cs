@@ -18,9 +18,10 @@ namespace GameUpdater
 
         private void Update()
         {
-            progressBar_loading.Value = 50;
+            progressBar_loading.Value = 0;
             Thread updateThread = new Thread(() => {
                 Updater upd = new Updater();
+                upd.OnStatusUpdate += Upd_OnStatusUpdate;
                 bool weiter = true;
                 while (weiter)
                 {
@@ -56,16 +57,25 @@ namespace GameUpdater
                             }
                             else
                             {
-                                progressBar_loading.Value = 50;
+                                progressBar_loading.Value = 0;
                             }
 
                         }
 
                     }));
                 }
+                upd.OnStatusUpdate -= Upd_OnStatusUpdate;
             });
             updateThread.IsBackground = true;
             updateThread.Start();
+        }
+
+        private void Upd_OnStatusUpdate(object sender, Updater.StatusUpdateArgs e)
+        {
+            this.Invoke(new System.Action(()=>{
+                label_status.Text = e.statusText;
+                progressBar_loading.Value = e.progressPercent;
+            }));
         }
 
         public Form1()

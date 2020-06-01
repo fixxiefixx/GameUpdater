@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using VCDiff.Decoders;
@@ -27,7 +28,9 @@ namespace GameUpdater
 
         private void StatusUpdate(string text,int percent)
         {
+            Debug.WriteLine(text+" ("+percent+"%)");
             OnStatusUpdate?.Invoke(this, new StatusUpdateArgs() { statusText = text, progressPercent = percent });
+            //Thread.Sleep(2000);
         }
 
         public string GetTemporaryDirectory()
@@ -175,6 +178,7 @@ namespace GameUpdater
             string tmpDir = GetTemporaryDirectory();
             try
             {
+                StatusUpdate("Checking for updates", 0);
                 FtpClient ftp = new FtpClient(Settings.FTPServerAddress + ":" + Settings.FTPServerPort, Settings.FTPUser, Settings.FTPPassword);
 
                 string versionsFileLocal = Path.Combine(tmpDir, "versions.txt");
@@ -204,18 +208,25 @@ namespace GameUpdater
                     throw new Exception("Unknown Version");
                 }
 
+                int updateCountToInstall = (versions.Length-1) - myVersionIndex;
+
                 //Update until we have the newest version
                 for (int i = myVersionIndex + 1; i < versions.Length; i++)
                 {
+                    
                     string newVersion = versions[i];
                     Debug.WriteLine("Updating to " + newVersion);
+                    int updateIndex = i - (myVersionIndex + 1);
+                    int percent = (int)((updateIndex / (float)updateCountToInstall) * 100f);
+                    StatusUpdate("Downloading update "+(updateIndex+1).ToString()+" / "+ updateCountToInstall.ToString()+" (" +newVersion+")",percent);
                     string localZipFile = Path.Combine(tmpDir, "update.zip");
                     ftp.download(newVersion + ".zip", localZipFile);
+                    StatusUpdate("Installing update " + (updateIndex + 1).ToString() + " / " + updateCountToInstall.ToString() + " (" + newVersion + ")", percent);
                     InstallUpdateFromZip(localZipFile,Path.GetDirectoryName( Application.ExecutablePath));
                     WriteCurrentVersion(newVersion);
                     File.Delete(localZipFile);
                 }
-                
+                StatusUpdate("You are up to date", 100);
             }
             finally
             {
