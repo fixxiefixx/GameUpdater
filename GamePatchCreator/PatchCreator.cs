@@ -17,11 +17,13 @@ namespace GamePatchCreator
         private void DoEncode(string outPatchFile, string oldFile, string newFile)
         {
             byte[] hash = GetSha1FromFile(oldFile);
+            byte[] newHash = GetSha1FromFile(newFile);
             using (FileStream output = new FileStream(outPatchFile, FileMode.Create, FileAccess.Write))
             using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
             using (FileStream target = new FileStream(newFile, FileMode.Open,FileAccess.Read))
             {
                 output.Write(hash, 0, 20);
+                output.Write(newHash, 0, 20);
 
                 VCCoder coder = new VCCoder(dict, target, output);
                 VCDiffResult result = coder.Encode(); //encodes with no checksum and not interleaved

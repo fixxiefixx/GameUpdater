@@ -78,22 +78,44 @@ namespace GameUpdater
             }
         }
 
+        private bool CompareHashes(byte[] hash1, byte[] hash2)
+        {
+            if (hash1.Length != hash2.Length)
+                return false;
+            for (int i = 0; i < hash1.Length; i++)
+            {
+                if (hash1[i] != hash2[i])
+                {
+                    return false;
+                }
+            }
+            return true;
+        }
+
         void DoDecode(string outputFile, string oldFile, string patchFile)
         {
             using (FileStream target = new FileStream(patchFile, FileMode.Open, FileAccess.Read))
             {
-                byte[] hash = new byte[20];
-                target.Read(hash, 0, hash.Length);
+                byte[] oldHash = new byte[20];
+                byte[] newHash = new byte[20];
+                target.Read(oldHash, 0, oldHash.Length);
+                target.Read(newHash, 0, newHash.Length);
 
                 byte[] realHash = GetSha1FromFile(oldFile);
 
-                for(int i=0;i<hash.Length;i++)
+                bool oldHashMatches = CompareHashes(oldHash, realHash);
+
+                if (!oldHashMatches)
                 {
-                    if(hash[i]!=realHash[i])
+                    if (CompareHashes(realHash, newHash))
                     {
-                        throw new Exception("file hash mismatch");
+                        File.Copy(oldFile, outputFile);
+                        return;
                     }
+                    else
+                        throw new Exception("file hash mismatch");
                 }
+                 
 
                 using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
                 using (FileStream output = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
@@ -139,9 +161,8 @@ namespace GameUpdater
             }
         }
 
-        private void InstallUpdateFromZip(string zipFile,string outFolder)
+        private void InstallUpdateFromZip(string zipFile,string outFolder, HashSet<string> filesNotUpdated)
         {
-
 
             using(FileStream fs=new FileStream(zipFile,FileMode.Open))
             {
@@ -150,10 +171,10 @@ namespace GameUpdater
                     while (zipInputStream.GetNextEntry() is ZipEntry zipEntry)
                     {
                         var entryFileName = zipEntry.Name;
-                     
+                        string relativeFilePath = entryFileName.Substring(0, entryFileName.Length - 4);
 
 
-                        
+
 
                         // Manipulate the output filename here as desired.
                         var fullZipToPath = Path.Combine(outFolder, entryFileName);
@@ -171,12 +192,14 @@ namespace GameUpdater
                         {
                             string fileToDelete = fullZipToPath.Substring(0, fullZipToPath.Length - 4);
                             File.Delete(fileToDelete);
+                            filesNotUpdated.Remove(relativeFilePath);
                             continue;
                         }
 
                         if(entryFileName.EndsWith(".new"))
                         {
                             fullZipToPath = fullZipToPath.Substring(0, fullZipToPath.Length - 4);
+                            filesNotUpdated.Remove(relativeFilePath);
                         }
 
                         // Unzip file in buffered chunks. This is just as fast as unpacking
@@ -196,13 +219,14 @@ namespace GameUpdater
                             try
                             {
                                 DoDecode(newFile, oldFile, fullZipToPath);
-
+                                filesNotUpdated.Remove(relativeFilePath);
                                 File.Delete(fullZipToPath);
                                 File.Delete(oldFile);
                                 File.Move(newFile, oldFile);
                             }
                             catch {
                                 File.Delete(fullZipToPath);
+                                filesNotUpdated.Add(relativeFilePath);
                             }
                             
                         }
@@ -249,6 +273,8 @@ namespace GameUpdater
 
                 int updateCountToInstall = (versions.Length-1) - myVersionIndex;
 
+                HashSet<string> filesNotUpdated = new HashSet<string>();
+
                 //Update until we have the newest version
                 for (int i = myVersionIndex + 1; i < versions.Length; i++)
                 {
@@ -261,11 +287,19 @@ namespace GameUpdater
                     string localZipFile = Path.Combine(tmpDir, "update.zip");
                     ftp.download(newVersion + ".zip", localZipFile);
                     StatusUpdate("Installing update " + (updateIndex + 1).ToString() + " / " + updateCountToInstall.ToString() + " (" + newVersion + ")", percent);
-                    InstallUpdateFromZip(localZipFile,Path.GetDirectoryName( Application.ExecutablePath));
+                    InstallUpdateFromZip(localZipFile,Path.GetDirectoryName( Application.ExecutablePath),filesNotUpdated);
                     WriteCurrentVersion(newVersion);
                     File.Delete(localZipFile);
                 }
-                StatusUpdate("You are up to date", 100);
+
+                if (filesNotUpdated.Count > 0)
+                {
+                    StatusUpdate(filesNotUpdated.Count + " files could not be updated", 100);
+                }
+                else
+                {
+                    StatusUpdate("You are up to date", 100);
+                }
             }
             finally
             {
