@@ -27,9 +27,9 @@ namespace GameUpdater
 
         public event EventHandler<StatusUpdateArgs> OnStatusUpdate;
 
-        private void StatusUpdate(string text,int percent)
+        private void StatusUpdate(string text, int percent)
         {
-            Debug.WriteLine(text+" ("+percent+"%)");
+            Debug.WriteLine(text + " (" + percent + "%)");
             OnStatusUpdate?.Invoke(this, new StatusUpdateArgs() { statusText = text, progressPercent = percent });
             //Thread.Sleep(2000);
         }
@@ -44,10 +44,10 @@ namespace GameUpdater
         private string[] ReadVersionsFile(string file)
         {
             List<string> versions = new List<string>();
-            using(StreamReader sr=new StreamReader(file))
+            using (StreamReader sr = new StreamReader(file))
             {
                 string line;
-                while((line=sr.ReadLine())!=null)
+                while ((line = sr.ReadLine()) != null)
                 {
                     versions.Add(line);
                 }
@@ -57,13 +57,13 @@ namespace GameUpdater
 
         private string ReadCurrentVersion()
         {
-            
+
             string versionFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "version.txt");
-            if(!File.Exists(versionFile))
+            if (!File.Exists(versionFile))
             {
                 return "";
             }
-            using(StreamReader sr=new StreamReader(versionFile))
+            using (StreamReader sr = new StreamReader(versionFile))
             {
                 return sr.ReadLine();
             }
@@ -71,8 +71,8 @@ namespace GameUpdater
 
         private void WriteCurrentVersion(string version)
         {
-            string versionFile = Path.Combine(Path.GetDirectoryName( Application.ExecutablePath), "version.txt");
-            using(StreamWriter sw=new StreamWriter(versionFile,false))
+            string versionFile = Path.Combine(Path.GetDirectoryName(Application.ExecutablePath), "version.txt");
+            using (StreamWriter sw = new StreamWriter(versionFile, false))
             {
                 sw.WriteLine(version);
             }
@@ -115,7 +115,7 @@ namespace GameUpdater
                     else
                         throw new Exception("file hash mismatch");
                 }
-                 
+
 
                 using (FileStream dict = new FileStream(oldFile, FileMode.Open, FileAccess.Read))
                 using (FileStream output = new FileStream(outputFile, FileMode.Create, FileAccess.Write))
@@ -161,10 +161,10 @@ namespace GameUpdater
             }
         }
 
-        private void InstallUpdateFromZip(string zipFile,string outFolder, HashSet<string> filesNotUpdated)
+        private void InstallUpdateFromZip(string zipFile, string outFolder, HashSet<string> filesNotUpdated)
         {
 
-            using(FileStream fs=new FileStream(zipFile,FileMode.Open))
+            using (FileStream fs = new FileStream(zipFile, FileMode.Open))
             {
                 using (var zipInputStream = new ZipInputStream(fs))
                 {
@@ -188,7 +188,7 @@ namespace GameUpdater
                             continue;
                         }
 
-                        if(entryFileName.EndsWith(".del"))
+                        if (entryFileName.EndsWith(".del"))
                         {
                             string fileToDelete = fullZipToPath.Substring(0, fullZipToPath.Length - 4);
                             File.Delete(fileToDelete);
@@ -196,7 +196,7 @@ namespace GameUpdater
                             continue;
                         }
 
-                        if(entryFileName.EndsWith(".new"))
+                        if (entryFileName.EndsWith(".new"))
                         {
                             fullZipToPath = fullZipToPath.Substring(0, fullZipToPath.Length - 4);
                             filesNotUpdated.Remove(relativeFilePath);
@@ -212,9 +212,9 @@ namespace GameUpdater
                             StreamUtils.Copy(zipInputStream, streamWriter, buffer);
                         }
 
-                        if(entryFileName.EndsWith(".upd"))
+                        if (entryFileName.EndsWith(".upd"))
                         {
-                            string oldFile= fullZipToPath.Substring(0, fullZipToPath.Length - 4);
+                            string oldFile = fullZipToPath.Substring(0, fullZipToPath.Length - 4);
                             string newFile = oldFile + ".new";
                             try
                             {
@@ -224,11 +224,12 @@ namespace GameUpdater
                                 File.Delete(oldFile);
                                 File.Move(newFile, oldFile);
                             }
-                            catch {
+                            catch
+                            {
                                 File.Delete(fullZipToPath);
                                 filesNotUpdated.Add(relativeFilePath);
                             }
-                            
+
                         }
 
                     }
@@ -243,10 +244,9 @@ namespace GameUpdater
             {
                 StatusUpdate("Checking for updates", 0);
                 FtpClient ftp = new FtpClient(Settings.FTPServerAddress + ":" + Settings.FTPServerPort, Settings.FTPUser, Settings.FTPPassword);
-
                 string versionsFileLocal = Path.Combine(tmpDir, "versions.txt");
 
-                ftp.download("versions.txt", versionsFileLocal);
+                ftp.download(Settings.FTPDirectory + "versions.txt", versionsFileLocal);
                 string[] versions = ReadVersionsFile(versionsFileLocal);
                 string myVersion = ReadCurrentVersion();
                 int myVersionIndex = -1;
@@ -271,23 +271,23 @@ namespace GameUpdater
                     throw new Exception("Unknown Version");
                 }
 
-                int updateCountToInstall = (versions.Length-1) - myVersionIndex;
+                int updateCountToInstall = (versions.Length - 1) - myVersionIndex;
 
                 HashSet<string> filesNotUpdated = new HashSet<string>();
 
                 //Update until we have the newest version
                 for (int i = myVersionIndex + 1; i < versions.Length; i++)
                 {
-                    
+
                     string newVersion = versions[i];
                     Debug.WriteLine("Updating to " + newVersion);
                     int updateIndex = i - (myVersionIndex + 1);
                     int percent = (int)((updateIndex / (float)updateCountToInstall) * 100f);
-                    StatusUpdate("Downloading update "+(updateIndex+1).ToString()+" / "+ updateCountToInstall.ToString()+" (" +newVersion+")",percent);
+                    StatusUpdate("Downloading update " + (updateIndex + 1).ToString() + " / " + updateCountToInstall.ToString() + " (" + newVersion + ")", percent);
                     string localZipFile = Path.Combine(tmpDir, "update.zip");
-                    ftp.download(newVersion + ".zip", localZipFile);
+                    ftp.download(Settings.FTPDirectory + newVersion + ".zip", localZipFile);
                     StatusUpdate("Installing update " + (updateIndex + 1).ToString() + " / " + updateCountToInstall.ToString() + " (" + newVersion + ")", percent);
-                    InstallUpdateFromZip(localZipFile,Path.GetDirectoryName( Application.ExecutablePath),filesNotUpdated);
+                    InstallUpdateFromZip(localZipFile, Path.GetDirectoryName(Application.ExecutablePath), filesNotUpdated);
                     WriteCurrentVersion(newVersion);
                     File.Delete(localZipFile);
                 }
